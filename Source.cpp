@@ -4,8 +4,6 @@
 #include <GLFW/glfw3.h>  // GLFW library
 
 
-
-
 // GLM Math Header inclusions
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
@@ -23,7 +21,7 @@ using namespace std; // Standard namespace
 // Unnamed namespace
 namespace
 {
-    const char* const WINDOW_TITLE = "Chloe Ninefeldt - Module 4"; // Macro for window title
+    const char* const WINDOW_TITLE = "Ninefeldt"; // Macro for window title
 
     // Variables for window width and height
     const int WINDOW_WIDTH = 800;
@@ -32,9 +30,9 @@ namespace
     // Stores the GL data relative to a given mesh
     struct GLMesh
     {
-        GLuint vao;         // Handle for the vertex array object
-        GLuint vbo;     // Handles for the vertex buffer objects
-        GLuint nVertices;    // Number of indices of the mesh
+        GLuint cubeVao, cylinderVao;         // Handle for the vertex array object (will need plane, plane2, cube, and cylinder
+        GLuint cubeVbo;     // Handles for the vertex buffer objects (will need plane, plane2, and cube)
+        GLuint cubeVertices, cylinderVertices;    // Number of indices of the mesh (will need cube, cylinder, plane, and plane2
     };
 
     // Main GLFW window
@@ -54,6 +52,24 @@ namespace
     float gDeltaTime = 0.0f; // time between current frame and last frame
     float gLastFrame = 0.0f;
 
+    
+    // Position ///////////////////////////////////////////////////////////////////
+    
+    //position of the main plane
+    glm::vec3 gPlanePosition(0.0f, 0.0f, 0.0f);
+    glm::vec3 gPlaneScale(4.0f)
+        
+    //postion of the second plane (iPad)   
+    
+   //postion of the cube
+   glm::vec3 gcubePosition(4.0f, 0.2f, 2.0f);
+   glm::vec3 gcubeScale(1.0f); 
+    
+    
+        
+  
+   /////////////////////////////////////////////////////////////////////////////////     
+    
 }
 
 /* User-defined Function prototypes to:
@@ -77,9 +93,9 @@ void UDestroyShaderProgram(GLuint programId);
 /* Vertex Shader Source Code*/
 const GLchar* vertexShaderSource = GLSL(440,
     layout(location = 0) in vec3 position; // Vertex data from Vertex Attrib Pointer 0
-layout(location = 1) in vec4 color;  // Color data from Vertex Attrib Pointer 1
+    layout(location = 1) in vec4 color;  // Color data from Vertex Attrib Pointer 1
 
-out vec4 vertexColor; // variable to transfer color data to the fragment shader
+    out vec4 vertexColor; // variable to transfer color data to the fragment shader
 
 //Global variables for the  transform matrices
 uniform mat4 model;
@@ -98,7 +114,7 @@ void main()
 const GLchar* fragmentShaderSource = GLSL(440,
     in vec4 vertexColor; // Variable to hold incoming color data from vertex shader
 
-out vec4 fragmentColor;
+    out vec4 fragmentColor;
 
 void main()
 {
@@ -301,13 +317,7 @@ void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 void URender()
 {
 
-    const int nrows = 10;
-    const int ncols = 10;
-    const int nlevels = 10;
-
-    const float xsize = 10.0f;
-    const float ysize = 10.0f;
-    const float zsize = 10.0f;
+    const float angularVelocity = glm::radians(45.0f);
 
 
     // Enable z-depth
@@ -331,37 +341,16 @@ void URender()
     GLint modelLoc = glGetUniformLocation(gProgramId, "model");
     GLint viewLoc = glGetUniformLocation(gProgramId, "view");
     GLint projLoc = glGetUniformLocation(gProgramId, "projection");
-
+    
+    
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
     // Activate the VBOs contained within the mesh's VAO
     glBindVertexArray(gMesh.vao);
 
-    // 1. Scales the object by 2
-    glm::mat4 scale = glm::scale(glm::vec3(2.0f, 2.0f, 2.0f));
-    // 2. Rotates shape by 15 degrees in the x axis
-    glm::mat4 rotation = glm::rotate(45.0f, glm::vec3(1.0, 1.0f, 1.0f));
-
-    for (int i = 0; i < nrows; ++i)
-    {
-        for (int j = 0; j < ncols; ++j)
-        {
-            for (int k = 0; k < nlevels; ++k)
-            {
-                glm::vec3 location = glm::vec3(i * xsize, j * ysize, k * zsize);
-                // 3. Place object at the origin
-                glm::mat4 translation = glm::translate(location);
-                // Model matrix: transformations are applied right-to-left order
-                glm::mat4 model = translation * rotation * scale;
-                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
-                // Draws the triangles
-                glDrawArrays(GL_TRIANGLES, 0, gMesh.nVertices);
-            }
-        }
-    }
-
+  
     // Deactivate the Vertex Array Object
     glBindVertexArray(0);
 
@@ -375,69 +364,136 @@ void URender()
 void UCreateMesh(GLMesh& mesh)
 {
     // Position and Color data
-    GLfloat verts[] = {
-
-        //Triangle 1
-         0.5f, 1.0f,  0.0f,   1.0f, 1.0f, 1.0f, 1.0f, // Top vertex 0
-        -0.3f, 0.0f, -1.3f,   1.0f, 1.0f, 1.0f, 1.0f, //Bottom Left Vertex 1 
-         0.6f, 0.0f, -1.0f,   1.0f, 1.0f, 0.0f, 1.0f, // Bottom Right Vertex 2
-
-        //Triangle 2
-         0.5f, 1.0f,  0.0f,   1.0f, 1.0f, 1.0f, 1.0f, // Top vertex 0
-        -0.3f, 0.0f, -1.3f,   0.0f, 1.0f, 1.0f, 1.0f, // Bottom Left Vertex 1
-        -0.2f, 0.0f, -0.1f,   1.0f, 0.0f, 1.0f, 1.0f, // Bottom Left Vertex 4
-
-        //Trianlge 3
-         0.5f, 1.0f,  0.0f,   1.0f, 1.0f, 1.0f, 1.0f, // Top vertex 0
-         0.4f, 0.0f,  0.7f,   1.0f, 1.0f, 0.0f, 1.0f, // Bottom Right Vertex 3
-        -0.2f, 0.0f, -0.1f,   1.0f, 0.0f, 1.0f, 1.0f, // Bottom Left Vertex 4
-
-        //Triangle 4
-        0.5f, 1.0f,  0.0f,    1.0f, 1.0f, 1.0f, 1.0f, // Top Vertex 0
-        0.4f, 0.0f,  0.7f,    1.0f, 1.0f, 0.0f, 1.0f, // Bottom Right Vertex 3
-        0.6f, 0.0f, -1.0f,    1.0f, 1.0f, 0.0f, 1.0f, // Bottom Right Vertex 2
-
-        //Trianle 5 (bottom)
-       -0.3f, 0.0f, -1.3f,    0.0f, 1.0f, 1.0f, 1.0f, // Bottom Left Vertex 1
-        0.6f, 0.0f, -1.0f,    1.0f, 1.0f, 0.0f, 1.0f, // Bottom Right Vertex 2
-        0.4f, 0.0f,  0.7f,    1.0f, 1.0f, 0.0f, 1.0f, // Bottom Right Vertex 3
-
-        //Triangle 6 (bottom)
-       -0.3f, 0.0f, -1.3f,    0.0f, 1.0f, 1.0f, 1.0f, // Bottom Left Vertex 1
-       -0.2f, 0.0f, -0.1f,    1.0f, 0.0f, 1.0f, 1.0f, // Bottom Left Vertex 4
-        0.4f, 0.0f,  0.7f,    1.0f, 1.0f, 0.0f, 1.0f, // Bottom Right Vertex 3
-
-
+    GLfloat cubeVerts[] = {
+        //cube                  //colors  (r, g, b)
+       -0.5f, -0.5f, -0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f,     1.0f, 0.0f, 0.0f, 1.0f, 
+        0.5f,  0.5f, -0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+        0.5f,  0.5f, -0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+       -0.5f,  0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+       -0.5f, -0.5f, -0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+ 
+       -0.5f, -0.5f,  0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+        0.5f, -0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+        0.5f,  0.5f,  0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+        0.5f,  0.5f,  0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+       -0.5f,  0.5f,  0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+       -0.5f, -0.5f,  0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+ 
+       -0.5f,  0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+       -0.5f,  0.5f, -0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+       -0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+       -0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+       -0.5f, -0.5f,  0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+       -0.5f,  0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+ 
+        0.5f,  0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f, 
+        0.5f,  0.5f, -0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+        0.5f, -0.5f,  0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+        0.5f,  0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+ 
+       -0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+        0.5f, -0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+        0.5f, -0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+       -0.5f, -0.5f,  0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+       -0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+ 
+       -0.5f,  0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f, 
+        0.5f,  0.5f, -0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+        0.5f,  0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+        0.5f,  0.5f,  0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
+       -0.5f,  0.5f,  0.5f,     0.0f, 0.0f, 0.0f, 1.0f,
+       -0.5f,  0.5f, -0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
+ 
         
     };
 
+       //Draw soda (cylinder)
+    const GLuint floatsPerVertex2 = 3;
+    const GLuint floatsPerColor2 = 4;
+
+    glGenVertexArrays(1, &mesh.cylinderVao); // we can also generate multiple VAOs or buffers at the same time
+    glBindVertexArray(mesh.cylinderVao);
     
-
-    const GLuint floatsPerVertex = 3;
-    const GLuint floatsPerColor = 4;
-
-    mesh.nVertices = sizeof(verts) / (sizeof(verts[0]) * (floatsPerVertex + floatsPerColor));
-
-    glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
-    glBindVertexArray(mesh.vao);
-
-    // Create VBO
-    glGenBuffers(1, &mesh.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo); // Activates the buffer
+    
+    
+    glGenBuffers(2, mesh.cylinderVbos);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.cylinderVbos[0]); // Activates the buffer
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
-
-
+    
+    
+    //create buffers
+    mesh.cylinderVertices = sizeof(indices) / sizeof(indices[0]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.cylinderVbos[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    
+    
     // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
-    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerColor);// The number of floats before each
+    GLint cylinderStride = sizeof(float) * (floatsPerVertex2 + floatsPerColor2);// The number of floats before each
 
     // Create Vertex Attribute Pointers
-    glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
+    glVertexAttribPointer(0, floatsPerVertex2, GL_FLOAT, GL_FALSE, cylinderStride, 0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, floatsPerColor, GL_FLOAT, GL_FALSE, stride, (char*)(sizeof(float) * floatsPerVertex));
+    glVertexAttribPointer(1, floatsPerColor2, GL_FLOAT, GL_FALSE, cylinderStride, (char*)(sizeof(float) * floatsPerVertex2));
     glEnableVertexAttribArray(1);
+
+    
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    //draw cube
+    const GLuint floatsPerVertex = 3;
+    const GLuint floatsPerColor = 3;
+
+    mesh.cubeVertices = sizeof(cubeVerts) / (sizeof(cubeVerts[0]) * (floatsPerVertex + floatsPerColor));
+
+    glGenVertexArrays(1, &mesh.cubeVao); // we can also generate multiple VAOs or buffers at the same time
+    glBindVertexArray(mesh.cubeVao);
+    
+     // Create buffers
+    glGenBuffers(1, &mesh.cubeVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.cubeVbo); // Activates the buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVerts), cubeVerts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
+    
+    
+    // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
+    GLint cubeStride = sizeof(float) * (floatsPerVertex + floatsPerColor);// The number of floats before each
+    
+    // Create Vertex Attribute Pointers
+    glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, cubeStride, 0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, floatsPerColor, GL_FLOAT, GL_FALSE, cubeStride, (char*)(sizeof(float) * floatsPerVertex));
+    glEnableVertexAttribArray(1);
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    
+    
+
+    // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
+    GLint cubeStride = sizeof(float) * (floatsPerVertex + floatsPerColor);// The number of floats before each
+
+ 
+    
+    
+    //draw cylinder 
+    
+    
+    
+    //draw main plane
+    
+    
+    //draw plane (ipad)
+    
+    
+    
 }
 
+
+//figure out which vao/vbo needs to be destroyed? the cube? 
 
 void UDestroyMesh(GLMesh& mesh)
 {
@@ -445,6 +501,10 @@ void UDestroyMesh(GLMesh& mesh)
     glDeleteBuffers(1, &mesh.vbo);
 }
 
+
+
+//this will be where the UCreateTexture will come in once read about
+// with this is the UDestroyTexture (don't forget)
 
 // Implements the UCreateShaders function
 bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSource, GLuint& programId)
