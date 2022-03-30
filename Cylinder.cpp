@@ -2,7 +2,8 @@
 #include <cstdlib>          // EXIT_FAILURE
 #include <GL/glew.h>        // GLEW library
 #include <GLFW/glfw3.h>  // GLFW library
-
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h> 
 
 
 
@@ -42,8 +43,17 @@ namespace
     GLFWwindow* gWindow = nullptr;
     // Triangle mesh data
     GLMesh gMesh;
+    
+    //Texture
+    GLuint gSodaPattern;
+    
+    
     // Shader program
     GLuint gProgramId;
+    
+    
+    glm::vec2 gUVScale(5.0f, 5.0f);
+    GLint gTexWrapMode = GL_REPEAT;
 
     // camera
     Camera gCamera(glm::vec3(0.0f, 0.0f, 3.0f));
@@ -57,6 +67,8 @@ namespace
 
     glm::vec3 gSodaPosition(-0.3f, -0.2f, 0.0f);
     glm::vec3 gSodaScale(2.0f);
+    
+    
 
 }
 
@@ -74,6 +86,8 @@ void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void UCreateSoda(GLfloat verts[], GLushort indices[], int numSides, float radius, float halfLen);
 void UCreateMesh(GLMesh& mesh);
 void UDestroyMesh(GLMesh& mesh);
+bool UCreateTexture(const char* filename, GLuint& textureId);
+void UDestroyTexture(GLuint textureId);
 void URender();
 bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSource, GLuint& programId);
 void UDestroyShaderProgram(GLuint programId);
@@ -81,35 +95,49 @@ void UDestroyShaderProgram(GLuint programId);
 
 //* Vertex Shader Source Code*/
 const GLchar* vertexShaderSource = GLSL(440,
-    layout(location = 0) in vec3 position; // Vertex data from Vertex Attrib Pointer 0
-layout(location = 1) in vec4 color;  // Color data from Vertex Attrib Pointer 1
+    layout(location = 0) in vec3 position; // VAP position 0 for vertex position data
+    layout(location = 1) in vec3 normal; // VAP position 1 for normals
+    layout(location = 2) in vec2 textureCoordinate;
 
-out vec4 vertexColor; // variable to transfer color data to the fragment shader
+    out vec3 vertexNormal; // For outgoing normals to fragment shader
+    out vec3 vertexFragmentPos; // For outgoing color / pixels to fragment shader
+    out vec2 vertexTextureCoordinate;
 
-//Global variables for the  transform matrices
+//Uniform / Global variables for the  transform matrices
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
 void main()
 {
-    gl_Position = projection * view * model * vec4(position, 1.0f); // transforms vertices to clip coordinates
-    vertexColor = color; // references incoming color data
+    gl_Position = projection * view * model * vec4(position, 1.0f); // Transforms vertices into clip coordinates
+
+    vertexFragmentPos = vec3(model * vec4(position, 1.0f)); // Gets fragment / pixel position in world space only (exclude view and projection)
+
+    vertexNormal = mat3(transpose(inverse(model))) * normal; // get normal vectors in world space only and exclude normal translation properties
+    vertexTextureCoordinate = textureCoordinate;
 }
 );
 
 
-/* Fragment Shader Source Code*/
-const GLchar* fragmentShaderSource = GLSL(440,
-    in vec4 vertexColor; // Variable to hold incoming color data from vertex shader
-
-out vec4 fragmentColor;
-
-void main()
+// Images are loaded with Y axis going down, but OpenGL's Y axis goes up, so let's flip it
+void flipImageVertically(unsigned char* image, int width, int height, int channels)
 {
-    fragmentColor = vec4(vertexColor);
+    for (int j = 0; j < height / 2; ++j)
+    {
+        int index1 = j * width * channels;
+        int index2 = (height - 1 - j) * width * channels;
+
+        for (int i = width * channels; i > 0; --i)
+        {
+            unsigned char tmp = image[index1];
+            image[index1] = image[index2];
+            image[index2] = tmp;
+            ++index1;
+            ++index2;
+        }
+    }
 }
-);
 
 int main(int argc, char* argv[])
 {
@@ -122,6 +150,21 @@ int main(int argc, char* argv[])
     // Create the shader program
     if (!UCreateShaderProgram(vertexShaderSource, fragmentShaderSource, gProgramId))
         return EXIT_FAILURE;
+    
+    // Load texture
+    const char* texFilename = "galaxy.jpg";
+    if (!UCreateTexture(texFilename, gSodaPattern))
+    {
+        cout << "Failed to load texture " << texFilename << endl;
+        return EXIT_FAILURE;
+    }
+    
+    // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
+    gUseProgram(gProgramId);
+    
+    // We set the texture as texture unit 0
+    glUniform1i(glGetUniformLocation(gProgramId, "uTexture"), 0);
+
 
     // Sets the background color of the window to black (it will be implicitely used by glClear)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -149,9 +192,15 @@ int main(int argc, char* argv[])
 
     // Release mesh data
     UDestroyMesh(gMesh);
+    
+    
+    // Release texture
+    UDestroyTexture(gSodaPattern);
 
     // Release shader program
     UDestroyShaderProgram(gProgramId);
+    
+   
 
     exit(EXIT_SUCCESS); // Terminates the program successfully
 }
@@ -408,6 +457,9 @@ void URender()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, gSodaPattern);
+    
     // placing the object at the origin
     glm::mat4 translation = glm::translate(glm::vec3(0.0f, 0.0f, -8.0f));
 
@@ -482,6 +534,8 @@ void UCreateMesh(GLMesh& mesh)
 
     const GLuint floatsPerVertex2 = 3;
     const GLuint floatsPerColor2 = 4;
+    const GLuint floatsPerUV2 = 2;
+
 
 
     glGenVertexArrays(1, &mesh.cylinderVao); // we can also generate multiple VAOs or buffers at the same time
@@ -506,6 +560,9 @@ void UCreateMesh(GLMesh& mesh)
 
     glVertexAttribPointer(1, floatsPerColor2, GL_FLOAT, GL_FALSE, stride2, (char*)(sizeof(float) * floatsPerVertex2));
     glEnableVertexAttribArray(1);
+    
+    glVertexAttribPointer(2, floatsPerUV2, GL_FLOAT, GL_FALSE, stride2, (char*)(sizeof(float) * (floatsPerVertex2 + floatsPerColor2)));
+    glEnableVertexAttribArray(2);
 
     };
    
@@ -517,6 +574,53 @@ void UDestroyMesh(GLMesh& mesh)
     glDeleteVertexArrays(1, &mesh.cylinderVao);
     glDeleteBuffers(2, mesh.cylinderVbo);
 
+}
+
+/*Generate and load the texture*/
+bool UCreateTexture(const char* filename, GLuint& textureId)
+{
+    int width, height, channels;
+    unsigned char* image = stbi_load(filename, &width, &height, &channels, 0);
+    if (image)
+    {
+        flipImageVertically(image, width, height, channels);
+
+        glGenTextures(1, &textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+
+        // set the texture wrapping parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // set texture filtering parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        if (channels == 3)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+        else if (channels == 4)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+        else
+        {
+            cout << "Not implemented to handle image with " << channels << " channels" << endl;
+            return false;
+        }
+
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        stbi_image_free(image);
+        glBindTexture(GL_TEXTURE_2D, 0); // Unbind the texture
+
+        return true;
+    }
+
+    // Error loading the image
+    return false;
+}
+
+
+void UDestroyTexture(GLuint textureId)
+{
+    glGenTextures(1, &textureId);
 }
 
 // Implements the UCreateShaders function
