@@ -45,7 +45,7 @@ namespace
     GLMesh gMesh;
     
     //Texture
-    GLuint gSodaPattern;
+    GLuint gTextureId;
     
     
     // Shader program
@@ -93,29 +93,47 @@ bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSou
 void UDestroyShaderProgram(GLuint programId);
 
 
-//* Vertex Shader Source Code*/
+/* Vertex Shader Source Code*/
 const GLchar* vertexShaderSource = GLSL(440,
-    layout(location = 0) in vec3 position; // VAP position 0 for vertex position data
-    layout(location = 1) in vec3 normal; // VAP position 1 for normals
+    layout(location = 0) in vec3 position;
+    layout(location = 1) in vec4 color;
     layout(location = 2) in vec2 textureCoordinate;
 
-    out vec3 vertexNormal; // For outgoing normals to fragment shader
-    out vec3 vertexFragmentPos; // For outgoing color / pixels to fragment shader
+    out vec4 vertexColor; // variable to transfer color data to the fragment shader
+    out vec3 vertexFragmentPos;     // For outgoing color / pixels to fragment shader
     out vec2 vertexTextureCoordinate;
 
-//Uniform / Global variables for the  transform matrices
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
 void main()
 {
-    gl_Position = projection * view * model * vec4(position, 1.0f); // Transforms vertices into clip coordinates
+    gl_Position = projection * view * model * vec4(position, 1.0f); // transforms vertices to clip coordinates
+    vertexFragmentPos = vec3(model * vec4(position, 1.0f));
 
-    vertexFragmentPos = vec3(model * vec4(position, 1.0f)); // Gets fragment / pixel position in world space only (exclude view and projection)
-
-    vertexNormal = mat3(transpose(inverse(model))) * normal; // get normal vectors in world space only and exclude normal translation properties
+    vertexColor = color; // references incoming color data
     vertexTextureCoordinate = textureCoordinate;
+}
+);
+
+
+
+/* Fragment Shader Source Code*/
+const GLchar* fragmentShaderSource = GLSL(440,
+    in vec2 vertexTextureCoordinate;
+
+    in vec3 vertexFragmentPos; // For incoming fragment position
+
+    out vec4 fragmentColor; // For outgoing cube color to the GPU
+
+
+    uniform sampler2D uTexture;
+                                          
+void main()
+{
+    fragmentColor = texture(uTexture, vertexTextureCoordinate); // Send lighting results to GPU
+         //fragmentColor = texture(uTexture, vertexTextureCoordinate); // Sends texture to the GPU for rendering
 }
 );
 
@@ -141,7 +159,7 @@ void flipImageVertically(unsigned char* image, int width, int height, int channe
 
 int main(int argc, char* argv[])
 {
-    if (!UInitialize(argc, argv, &gWindow))
+     if (!UInitialize(argc, argv, &gWindow))
         return EXIT_FAILURE;
 
     // Create the mesh
@@ -150,20 +168,19 @@ int main(int argc, char* argv[])
     // Create the shader program
     if (!UCreateShaderProgram(vertexShaderSource, fragmentShaderSource, gProgramId))
         return EXIT_FAILURE;
-    
+
+
     // Load texture
-    const char* texFilename = "galaxy.jpg";
-    if (!UCreateTexture(texFilename, gSodaPattern))
+    const char* texFilename = "galaxy.png";
+    if (!UCreateTexture(texFilename, gTextureId))
     {
         cout << "Failed to load texture " << texFilename << endl;
         return EXIT_FAILURE;
     }
-    
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
-    gUseProgram(gProgramId);
-    
+    glUseProgram(gProgramId);
     // We set the texture as texture unit 0
-    glUniform1i(glGetUniformLocation(gProgramId, "uTexture"), 0);
+    glUniform1i(glGetUniformLocation(gProgramId, "uTexture"), 0)
 
 
     // Sets the background color of the window to black (it will be implicitely used by glClear)
@@ -273,6 +290,13 @@ void UProcessInput(GLFWwindow* window)
         gCamera.ProcessKeyboard(LEFT, gDeltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         gCamera.ProcessKeyboard(RIGHT, gDeltaTime);
+    
+    // Add stubs for Q/E Upward/Downward movement
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(UP, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(DOWN, gDeltaTime);
+    
 }
 
 
@@ -496,16 +520,24 @@ void URender()
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
+    
+    const glm::vec3 cameraPosition = gCamera.Position;
+    
+    GLint UVScaleLoc = glGetUniformLocation(gProgramId, "uvScale");
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gUVScale));
+    
     glBindVertexArray(gMesh.cylinderVao);
+    
+     // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, gTextureId);
 
     glDrawElements(GL_TRIANGLES, gMesh.cylinderVertices, GL_UNSIGNED_SHORT, NULL);
 
 
-    // Deactivate the Vertex Array Object
+      // Deactivate the Vertex Array Object
     glBindVertexArray(0);
-
-
+    
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
     glfwSwapBuffers(gWindow);    // Flips the the back buffer with the front buffer every frame.
 }
