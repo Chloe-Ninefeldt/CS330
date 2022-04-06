@@ -1,0 +1,65 @@
+const float textureWidth = 6668.f;
+	const float textureHeight = 3046.f;
+	const float matteTextureWidth = 3064.f;
+
+	const float frontFaceOffset = matteTextureWidth / textureWidth;
+	const float frontFaceHeight = 0.54f;
+	const float sideFaceLength = 0.07;
+  
+  
+  const float plane2_vertices[] = {
+		// front face
+		-0.5f,  0.5882f, 1.0f,	      0.f, 0.f, 1.f,	    frontFaceOffset, frontFaceHeight,	
+		 0.5f,  0.5882f, 1.0f,	      0.f, 0.f, 1.f,	    1.f, frontFaceHeight, 				
+		 0.5f, -0.5882f, 1.0f,	      0.f, 0.f, 1.f,	    1.f, 0.0f,								
+		 0.5f, -0.5882f, 1.0f,	      0.f, 0.f, 1.f,	    1.f, 0.0f,								
+		-0.5f,  0.5882f, 1.0f,	      0.f, 0.f, 1.f,	    frontFaceOffset, frontFaceHeight,	
+		-0.5f, -0.5882f, 1.0f,	      0.f, 0.f, 1.f,	    frontFaceOffset, 0.f,					
+
+		// right face
+		 0.5f,  0.5882f, 1.0f,	      1.f, 0.f, 0.f,	    sideFaceLength, 1.f,					
+		 0.5f,  0.5882f, 0.93f,	      1.f, 0.f, 0.f,	    0.0f, 1.f,								
+		 0.5f, -0.5882f, 1.0f,	      1.f, 0.f, 0.f,	    0.0f, 0.0f,								
+		 0.5f, -0.5882f, 1.0f,	      1.f, 0.f, 0.f,	    0.0f, 0.0f,								
+		 0.5f,  0.5882f, 0.93f,	      1.f, 0.f, 0.f,	    0.0f, 1.f,								
+		 0.5f, -0.5882f, 0.93f,	      1.f, 0.f, 0.f,	    sideFaceLength, 0.0f,					
+
+		// back face
+		-0.5f,  0.5882f, 0.93f,	      0.f, 0.f, -1.f,	    frontFaceOffset, 1.f, 				
+		 0.5f,  0.5882f, 0.93f,	      0.f, 0.f, -1.f,	    0.f, 1.0f, 								
+		-0.5f, -0.5882f, 0.93f,	      0.f, 0.f, -1.f,	    0.0f, 0.0f,								
+		-0.5f, -0.5882f, 0.93f,	      0.f, 0.f, -1.f,	    0.0f, 0.0f,								
+		 0.5f,  0.5882f, 0.93f,	      0.f, 0.f, -1.f,	    0.0f, 1.0f,								
+		 0.5f, -0.5882f, 0.93f,	      0.f, 0.f, -1.f,	    frontFaceOffset, 0.0f,				
+
+		// left face
+		-0.5f,  0.5882f, 1.0f,	     -1.f, 0.f,  0.f,	    sideFaceLength, 1.f,					
+		-0.5f,  0.5882f, 0.93f,	     -1.f, 0.f,  0.f,	    0.0f, 1.0f,								
+		-0.5f, -0.5882f, 0.93f,	     -1.f, 0.f,  0.f,	    0.0f, 0.0f,								
+		-0.5f, -0.5882f, 0.93f,	     -1.f, 0.f,  0.f,	    0.0f, 0.0f,								
+		-0.5f,  0.5882f, 1.0f,	     -1.f, 0.f,  0.f,	    0.0f, 1.0f,							 
+		-0.5f, -0.5882f, 1.0f,	     -1.f, 0.f,  0.f,	    sideFaceLength, 0.0f,					
+
+		// bottom face
+	  -0.5f, -0.5882f, 1.0f,	      0.f, -1.f, 0.f,	    sideFaceLength, 1.f,					
+		 0.5f, -0.5882f, 1.0f,	      0.f, -1.f, 0.f,	    0.0f, 1.0f,								
+		-0.5f, -0.5882f, 0.93f,     	0.f, -1.f, 0.f,	    0.0f, 0.0f,								
+		-0.5f, -0.5882f, 0.93f,	      0.f, -1.f, 0.f,	    0.0f, 0.0f,							
+		 0.5f, -0.5882f, 1.0f,	      0.f, -1.f, 0.f,	    0.0f, 1.0f,								
+		 0.5f, -0.5882f, 0.93f,	      0.f, -1.f, 0.f,	    sideFaceLength, 0.0f,		
+
+		// top face
+		-0.5f, 0.5882f, 1.0f,	        0.f, 1.f, 0.f,	     sideFaceLength, 1.f,					
+		-0.5f, 0.5882f, 0.93f,	      0.f, 1.f, 0.f,	     0.0f, 1.0f,								
+		 0.5f, 0.5882f, 0.93f,	      0.f, 1.f, 0.f,	     0.0f, 0.0f,								
+		 0.5f, 0.5882f, 0.93f,	      0.f, 1.f, 0.f,	     0.0f, 0.0f,								
+		-0.5f, 0.5882f, 1.0f,	        0.f, 1.f, 0.f,	     0.0f, 1.0f,								
+		 0.5f, 0.5882f, 1.0f,	        0.f, 1.f, 0.f,	     sideFaceLength, 0.0f,				
+
+		
+	};
+
+	const int floatsPerVertex = 3;
+	const int floatsPerNormal = 3;
+	const int floatsPerTexture = 2;
+	const int stride = floatsPerVertex + floatsPerNormal + floatsPerTexture;
