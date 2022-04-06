@@ -58,6 +58,8 @@ namespace
     GLuint gProgramId;
     GLuint gProgramIdCube;
     GLuint gProgramIdPlane;
+    GLuint gProgramIdLamp;
+    GLuint gProgramIdFill;
 
 
     glm::vec2 gUVScale(5.0f, 5.0f);
@@ -83,7 +85,21 @@ namespace
     glm::vec3 gPositionPlane(0.0f, 0.0f, 0.0f);
     glm::vec3 gScalePlane(3.0f);
 
+    
+    glm::vec3 gObjectColor(1.0f, 0.2f, 0.0f);
 
+    glm::vec3 gLightColor(1.0f, 1.0f, 1.2f);
+    glm::vec3 gLightPosition(8.0f,11.5f, 3.0f);
+    glm::vec3 gLightScale(1.3f);
+    
+    glm::vec3 gFillColor(1.0f, 1.0f, 1.2f);
+    glm::vec3 gFillPosition(-8.0f, 11.5f, 7.0f);
+    glm::vec3 gFillScale(1.3f);
+
+    
+     // Lamp animation
+    bool gLampIsOrbiting = true;
+}
 }
 
 /* User-defined Function prototypes to:
@@ -109,120 +125,159 @@ bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSou
 void UDestroyShaderProgram(GLuint programId);
 
 
-/* Vertex Shader Source Code*/
-const GLchar* vertexShaderSource = GLSL(440,
-    layout(location = 0) in vec3 position;
-    layout(location = 1) in vec4 color;
-    layout(location = 2) in vec2 textureCoordinate;
+/* Cube Vertex Shader Source Code*/
+const GLchar* cubeVertexShaderSource = GLSL(440,
 
-    out vec4 vertexColor; // variable to transfer color data to the fragment shader
-    out vec3 vertexFragmentPos;     // For outgoing color / pixels to fragment shader
-    out vec2 vertexTextureCoordinate;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main()
-{
-    gl_Position = projection * view * model * vec4(position, 1.0f); // transforms vertices to clip coordinates
-   vertexFragmentPos = vec3(model * vec4(position, 1.0f));
-
-    vertexColor = color; // references incoming color data
-    vertexTextureCoordinate = textureCoordinate;
-}
-);
-
-/* Fragment Shader Source Code*/
-const GLchar* fragmentShaderSource = GLSL(440,
-    in vec2 vertexTextureCoordinate;
-    in vec3 vertexFragmentPos; // For incoming fragment position
-
-    out vec4 fragmentColor; // For outgoing cube color to the GPU
-    uniform sampler2D uTexture;
-
-void main()
-{
-    fragmentColor = texture(uTexture, vertexTextureCoordinate); // Send lighting results to GPU
-         //fragmentColor = texture(uTexture, vertexTextureCoordinate); // Sends texture to the GPU for rendering
-}
-);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//* Vertex Shader Source Code*/ - Cube
-const GLchar* vertexShaderSourceCube = GLSL(440,
-    layout(location = 0) in vec3 position; // Vertex data from Vertex Attrib Pointer 0
-    layout(location = 1) in vec4 color;  // Color data from Vertex Attrib Pointer 1
-
-    out vec4 vertexColor; // variable to transfer color data to the fragment shader
-
-//Global variables for the  transform matrices
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main()
-{
-    gl_Position = projection * view * model * vec4(position, 1.0f); // transforms vertices to clip coordinates
-    vertexColor = color; // references incoming color data
-}
-);
-
-
-/* Fragment Shader Source Code*/
-const GLchar* fragmentShaderSourceCube = GLSL(440,
-    in vec4 vertexColor; // Variable to hold incoming color data from vertex shader
-
-    out vec4 fragmentColor;
-
-void main()
-{
-    fragmentColor = vec4(vertexColor);
-}
-);
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/* Plane Vertex Shader Source Code*/  //PLANE
-
-const GLchar* vertexShaderSourcePlane = GLSL(440,
-    layout(location = 0) in vec3 position; // Vertex data from Vertex Attrib Pointer 0
-layout(location = 1) in vec4 color;  // Color data from Vertex Attrib Pointer 1
+    layout(location = 0) in vec3 position; // VAP position 0 for vertex position data
+layout(location = 1) in vec3 normal; // VAP position 1 for normals
 layout(location = 2) in vec2 textureCoordinate;
 
-out vec4 vertexColor; // variable to transfer color data to the fragment shader
-out vec3 vertexFragmentPos;     // For outgoing color / pixels to fragment shader
+out vec3 vertexNormal; // For outgoing normals to fragment shader
+out vec3 vertexFragmentPos; // For outgoing color / pixels to fragment shader
 out vec2 vertexTextureCoordinate;
 
-//Global variables for the  transform matrices
+//Uniform / Global variables for the  transform matrices
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
 void main()
 {
-    gl_Position = projection * view * model * vec4(position, 1.0f); // transforms vertices to clip coordinates
-    vertexFragmentPos = vec3(model * vec4(position, 1.0f));
+    gl_Position = projection * view * model * vec4(position, 1.0f); // Transforms vertices into clip coordinates
 
-    vertexColor = color; // references incoming color data
+    vertexFragmentPos = vec3(model * vec4(position, 1.0f)); // Gets fragment / pixel position in world space only (exclude view and projection)
+
+    vertexNormal = mat3(transpose(inverse(model))) * normal; // get normal vectors in world space only and exclude normal translation properties
     vertexTextureCoordinate = textureCoordinate;
 }
 );
 
 
-/* Fragment Shader Source Code*/
-const GLchar* fragmentShaderSourcePlane = GLSL(440,
-    in vec2 vertexTextureCoordinate;
+/* Cube Fragment Shader Source Code*/
+const GLchar* cubeFragmentShaderSource = GLSL(440,
 
+    in vec3 vertexNormal; // For incoming normals
 in vec3 vertexFragmentPos; // For incoming fragment position
+in vec2 vertexTextureCoordinate;
 
 out vec4 fragmentColor; // For outgoing cube color to the GPU
-
-
-uniform sampler2D uTexture;
+out vec4 fillFragmentColor;
+// Uniform / Global variables for object color, light color, light position, and camera/view position
+uniform vec3 objectColor;
+uniform vec3 lightColor;
+uniform vec3 lightPos;
+uniform vec3 fillColor;
+uniform vec3 fillPos;
+uniform vec3 viewPosition;
+uniform sampler2D uTexture; // Useful when working with multiple textures
+uniform vec2 uvScale;
 
 void main()
 {
-    fragmentColor = texture(uTexture, vertexTextureCoordinate);
+    float ambientStrength = 0.1f; // Set ambient or global lighting strength
+    vec3 ambient = ambientStrength * lightColor; // Generate ambient light color
+
+    //Calculate Diffuse lighting*/
+    vec3 norm = normalize(vertexNormal); // Normalize vectors to 1 unit
+    vec3 lightDirection = normalize(lightPos - vertexFragmentPos); // Calculate distance (light direction) between light source and fragments/pixels on cube
+    float impact = max(dot(norm, lightDirection), 0.0);// Calculate diffuse impact by generating dot product of normal and light
+    vec3 diffuse = impact * lightColor; // Generate diffuse light color
+
+    //Calculate Specular lighting*/
+    float specularIntensity = 0.2f; // Set specular light strength
+    float highlightSize = 8.0f; // Set specular highlight size
+    vec3 viewDir = normalize(viewPosition - vertexFragmentPos); // Calculate view direction
+    vec3 reflectDir = reflect(-lightDirection, norm);// Calculate reflection vector
+    //Calculate specular component
+    float specularComponent = pow(max(dot(viewDir, reflectDir), 0.0), highlightSize);
+    vec3 specular = specularIntensity * specularComponent * lightColor;
+
+
+    //Calculate key lighting*/
+    float fillAmbientStrength = 0.1f; // Set ambient or global lighting strength
+    vec3 fillAmbient = fillAmbientStrength * fillColor; // Generate ambient light color
+
+    //Calculate Diffuse lighting*/
+
+    vec3 fillDirection = normalize(fillPos - vertexFragmentPos); // Calculate distance (light direction) between light source and fragments/pixels on cube
+    float fillImpact = max(dot(norm, fillDirection), 0.0);// Calculate diffuse impact by generating dot product of normal and light
+    vec3 fillDiffuse = fillImpact * fillColor; // Generate diffuse light color
+
+    //Calculate Specular lighting*/
+    float fillSpecularIntensity = 0.5f; // Set specular light strength
+    float fillHighlightSize = 8.0f; // Set specular highlight size
+    vec3 fillViewDir = normalize(viewPosition - vertexFragmentPos); // Calculate view direction
+    vec3 fillReflectDir = reflect(-fillDirection, norm);// Calculate reflection vector
+    //Calculate specular component
+    float fillSpecularComponent = pow(max(dot(fillViewDir, fillReflectDir), 0.0), fillHighlightSize);
+    vec3 fillSpecular = fillSpecularIntensity * fillSpecularComponent * fillColor;
+
+    // Calculate phong result
+    vec3 objectColor = texture(uTexture, vertexTextureCoordinate).xyz;
+    vec3 keyResult = (ambient + diffuse + specular);
+    vec3 fillResult = (fillAmbient + fillDiffuse + fillSpecular);
+    vec3 lightingResult = keyResult + fillResult;
+    vec3 phong = (lightingResult)*objectColor;
+
+
+    fragmentColor = vec4(phong, 1.0f); // Send lighting results to GPU
+}
+);
+
+
+/* Lamp Shader Source Code*/
+const GLchar* lampVertexShaderSource = GLSL(440,
+
+    layout(location = 0) in vec3 position; // VAP position 0 for vertex position data
+
+        //Uniform / Global variables for the  transform matrices
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main()
+{
+    gl_Position = projection * view * model * vec4(position, 1.0f); // Transforms vertices into clip coordinates
+}
+);
+
+
+/* Fragment Shader Source Code*/
+const GLchar* lampFragmentShaderSource = GLSL(440,
+
+    out vec4 fragmentColor; // For outgoing lamp color (smaller cube) to the GPU
+
+void main()
+{
+    fragmentColor = vec4(1.0f); // Set color to white (1.0f,1.0f,1.0f) with alpha 1.0
+}
+);
+
+
+const GLchar* fillVertexShaderSource = GLSL(440,
+
+    layout(location = 0) in vec3 position; // VAP position 0 for vertex position data
+
+        //Uniform / Global variables for the  transform matrices
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main()
+{
+    gl_Position = projection * view * model * vec4(position, 1.0f); // Transforms vertices into clip coordinates
+}
+);
+
+
+/* Fragment Shader Source Code*/
+const GLchar* fillFragmentShaderSource = GLSL(440,
+
+    out vec4 fragmentColor; // For outgoing lamp color (smaller cube) to the GPU
+
+void main()
+{
+    fragmentColor = vec4(1.0f); // Set color to white (1.0f,1.0f,1.0f) with alpha 1.0
 }
 );
 
@@ -261,16 +316,23 @@ int main(int argc, char* argv[])
     // Create the mesh
     UCreateMeshPlane(gMeshPlane); // Calls the function to create the Vertex Buffer Object
 
-    // Create the shader program
-    if (!UCreateShaderProgram(vertexShaderSource, fragmentShaderSource, gProgramId))
+    // Create the shader programs
+    if (!UCreateShaderProgram(cubeVertexShaderSource, cubeFragmentShaderSource, gProgramId))
         return EXIT_FAILURE;
 
-    // Create the shader programs
-    if (!UCreateShaderProgram(vertexShaderSourceCube, fragmentShaderSourceCube, gProgramIdCube))
+    if (!UCreateShaderProgram(lampVertexShaderSource, lampFragmentShaderSource, gProgramIdLamp))
         return EXIT_FAILURE;
 
-    // Create the shader programs
-    if (!UCreateShaderProgram(vertexShaderSourcePlane, fragmentShaderSourcePlane, gProgramIdPlane))
+    if (!UCreateShaderProgram(cubeVertexShaderSource, lampFragmentShaderSource, gProgramIdPlane))
+        return EXIT_FAILURE;
+
+    //if (!UCreateShaderProgram(cubeVertexShaderSource, lampFragmentShaderSource, gProgramIdPlane2))
+       // return EXIT_FAILURE;
+
+    if (!UCreateShaderProgram(cubeVertexShaderSource, lampFragmentShaderSource, gProgramIdCube))
+        return EXIT_FAILURE;
+    
+    if (!UCreateShaderProgram(fillVertexShaderSource, fillFragmentShaderSource, gProgramIdFill))
         return EXIT_FAILURE;
 
 
@@ -290,7 +352,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
-    glUseProgram(gProgramIdPlane);
+    glUseProgram(gProgramId);
     // We set the texture as texture unit 0
     //glUniform1i(glGetUniformLocation(gProgramIdPlane, "uTexture"), 0);
 
@@ -339,6 +401,8 @@ int main(int argc, char* argv[])
     UDestroyShaderProgram(gProgramId);
     UDestroyShaderProgram(gProgramIdCube);
     UDestroyShaderProgram(gProgramIdPlane);
+    UDestroyShaderProgram(gProgramIdFill);
+    UDestroyShaderProgram(gProgramIdLamp);
 
 
 
@@ -420,6 +484,71 @@ void UProcessInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         gCamera.ProcessKeyboard(DOWN, gDeltaTime);
 
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS && gTexWrapMode != GL_REPEAT)
+    {
+        glBindTexture(GL_TEXTURE_2D, gTextureId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        gTexWrapMode = GL_REPEAT;
+
+        cout << "Current Texture Wrapping Mode: REPEAT" << endl;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS && gTexWrapMode != GL_MIRRORED_REPEAT)
+    {
+        glBindTexture(GL_TEXTURE_2D, gTextureId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        gTexWrapMode = GL_MIRRORED_REPEAT;
+
+        cout << "Current Texture Wrapping Mode: MIRRORED REPEAT" << endl;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS && gTexWrapMode != GL_CLAMP_TO_EDGE)
+    {
+        glBindTexture(GL_TEXTURE_2D, gTextureId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        gTexWrapMode = GL_CLAMP_TO_EDGE;
+
+        cout << "Current Texture Wrapping Mode: CLAMP TO EDGE" << endl;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS && gTexWrapMode != GL_CLAMP_TO_BORDER)
+    {
+        float color[] = { 1.0f, 0.0f, 1.0f, 1.0f };
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
+
+        glBindTexture(GL_TEXTURE_2D, gTextureId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        gTexWrapMode = GL_CLAMP_TO_BORDER;
+
+        cout << "Current Texture Wrapping Mode: CLAMP TO BORDER" << endl;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_RIGHT_BRACKET) == GLFW_PRESS)
+    {
+        gUVScale += 0.1f;
+        cout << "Current scale (" << gUVScale[0] << ", " << gUVScale[1] << ")" << endl;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS)
+    {
+        gUVScale -= 0.1f;
+        cout << "Current scale (" << gUVScale[0] << ", " << gUVScale[1] << ")" << endl;
+    }
+
+    // Pause and resume lamp orbiting
+    static bool isLKeyDown = false;
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS && !gIsLampOrbiting)
+        gIsLampOrbiting = true;
+    else if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS && gIsLampOrbiting)
+        gIsLampOrbiting = false;
 }
 
 
@@ -704,9 +833,52 @@ void URender()
     glDrawArrays(GL_TRIANGLES, 0, gMeshPlane.planeVertices);
 
 
+    
+    
+    
+    
+    // LAMP: draw lamp
+    //----------------
+    glUseProgram(gLampProgramId);
+
+    //Transform the smaller cube used as a visual que for the light source
+    model = glm::translate(gLightPosition) * glm::scale(gLightScale);
+
+    // Reference matrix uniforms from the Lamp Shader program
+    modelLoc = glGetUniformLocation(gLampProgramId, "model");
+    viewLoc = glGetUniformLocation(gLampProgramId, "view");
+    projLoc = glGetUniformLocation(gLampProgramId, "projection");
+
+    // Pass matrix data to the Lamp Shader program's matrix uniforms
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glDrawArrays(GL_TRIANGLES, 0, gMesh.cylinderVertices);
+
+
+    //Draw fill
+    //----------------
+    glUseProgram(gFillProgramId);
+
+    //Transform the smaller cube used as a visual que for the light source
+    model = glm::translate(gFillPosition) * glm::scale(gFillScale);
+
+    // Reference matrix uniforms from the Lamp Shader program
+    modelLoc = glGetUniformLocation(gFillProgramId, "model");
+    viewLoc = glGetUniformLocation(gFillProgramId, "view");
+    projLoc = glGetUniformLocation(gFillProgramId, "projection");
+
+    // Pass matrix data to the Lamp Shader program's matrix uniforms
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glDrawArrays(GL_TRIANGLES, 0, gMesh.cylinderVertices);
 
     // Deactivate the Vertex Array Object
     glBindVertexArray(0);
+    glUseProgram(0);
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
     glfwSwapBuffers(gWindow);    // Flips the the back buffer with the front buffer every frame.
