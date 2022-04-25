@@ -2,13 +2,9 @@
 //SNHU CS 330 
 //Final
 
-
-
-
-//Press the "K" key to start the lamp orbit to see the shadows. 
-
-
-
+// WASD to move around the scene
+// Q and E to be used to move vertically
+//Press the K key to start the lamp orbit to see the shadows and L to stop the lamp orbit
 
 
 #include <iostream>         // cout, cerr
